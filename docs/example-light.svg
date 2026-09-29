@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="597.8" height="72" viewBox="0 0 597.8 72" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.6" xml:space="preserve">
+  <rect width="597.8" height="72" rx="6" fill="#f6f8fa"/>
+  <rect x="15" y="17" width="567.8" height="19" rx="2" fill="#f1e8fc"/>
+  <text x="16" y="31" textLength="565.8" lengthAdjust="spacingAndGlyphs" fill="#7a3db8" font-style="italic">// — Moved out of the effect so rerenders do not refire the request —</text>
+  <text x="16" y="51" textLength="278.8" lengthAdjust="spacingAndGlyphs" fill="#1f2328"><tspan fill="#cf222e">const</tspan> request <tspan fill="#cf222e">=</tspan> <tspan fill="#8250df">useRequest</tspan>(draft);</text>
+</svg>

@@ -1,27 +1,33 @@
 # AI Comments
 
-AI agents explain their changes in comments that are meant for the reviewer of the diff, not for the codebase.
-This toolkit gives those explanations their own syntax, highlights them in the IDE, and strips them automatically
-at commit time, so they never reach git history.
+AI agents like to explain their changes in comments. Those explanations help whoever reviews the diff, but they clutter the codebase once it's merged.
+
+AI Comments gives them their own syntax, highlights them in your IDE, and strips them when you commit, so they never reach git history.
+
+## How it works
+
+**1. The agent explains a change** with a comment wrapped in em-dashes. Your IDE highlights it:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/example-dark.svg">
+  <img alt="// — Moved out of the effect so rerenders do not refire the request — (highlighted), followed by: const request = useRequest(draft);" src="docs/example-light.svg">
+</picture>
+
+**2. You review the diff** with the explanation right next to the change.
+
+**3. You commit.** The AI comment is removed from the commit and from your working tree:
 
 ```ts
-// — Moved out of the effect so rerenders do not refire the request —
 const request = useRequest(draft);
 ```
 
-Regular comments stay what they should be: constraints the code cannot express.
+Regular comments are untouched, so they stay what they should be: constraints the code cannot express.
 
 ## Install
 
-Both parts work in every project with no per-repository setup.
+**JetBrains IDEs** (WebStorm, IntelliJ IDEA, Android Studio, … 2025.2+): Settings | Plugins | Marketplace, search for **AI Comments**.
 
-**JetBrains IDE** (WebStorm, IntelliJ IDEA, Android Studio, … 2025.2 or newer):
-
-Settings | Plugins | Marketplace, search for **AI Comments** and install it.
-
-**VS Code** (1.90 or newer, and forks like Cursor):
-
-Install **AI Comments** (`war-in.ai-comments`) from the Extensions view. Forks get it from Open VSX.
+**VS Code** (1.90+, and forks like Cursor): install **AI Comments** (`war-in.ai-comments`) from the Extensions view. Forks get it from Open VSX.
 
 **Claude Code:**
 
@@ -30,84 +36,43 @@ Install **AI Comments** (`war-in.ai-comments`) from the Extensions view. Forks g
 /plugin install ai-comments@war-in
 ```
 
-This teaches Claude the convention, strips AI comments before every `git commit` Claude runs, and checks every
-file Claude edits. On first use it downloads the `ai-comments` binary for your machine from the GitHub release
-matching the plugin version, and checks it against the plugin's `checksums.txt`. If you had a copy of the rule in `~/.claude/rules/` or a `CLAUDE.md`, remove it: the plugin injects it.
+This teaches Claude the convention, strips AI comments before every `git commit` Claude runs, and warns Claude when it leaves one unclosed. If you had a copy of the rule in `~/.claude/rules/` or a `CLAUDE.md`, remove it: the plugin adds it for you.
 
-## The syntax
+No per-repository setup is needed.
 
-An AI comment's body starts with `— ` and ends with ` —` (U+2014 em-dash):
+## Syntax
 
-| Form | Example |
-|---|---|
-| Line or trailing | `// — Was reduce() with a shared accumulator —` |
-| Block, any length | `/* — first line … last line — */` |
-| Line group | consecutive `//` lines from the one opening with `— ` to the one closing with ` —` |
-| JSX | `{/* — Wrapped in View so the badge is pressable — */}`: the braces go too |
-| Other languages | `# — … —`, `-- — … —`, `` |
+The comment body starts with `— ` and ends with ` —` (U+2014 em-dash, with a space inside each dash):
 
+```ts
+// — One line —
+
+const total = sum(items); // — Trailing —
+
+/* — A block that spans
+   several lines — */
+
+{/* — In JSX; the braces are stripped too — */}
+```
+
+Other languages work the same way: `# — … —`, `-- — … —`, <code>&lt;!-- — … — --&gt;</code>.
+
+- An AI comment that never closes is **not** stripped. The IDE warns you and offers a quick fix.
 - `/** … */` doc comments are never AI comments.
-- An opener that never closes is **not** stripped. The IDE shows a warning with a quick-fix, and Claude is told right after the edit.
-- Em-dashes inside ordinary prose (`see #123 — it breaks`) don't count.
 
-## What strips, and when
+## When it strips
 
-| Commit made by | Stripped by |
+| You commit from | Stripped? |
 |---|---|
-| The IDE commit dialog | The JetBrains plugin, before "Reformat code". Toggle: **Strip AI comments** in the commit options |
-| VS Code | A pre-commit hook the extension gives VS Code's git (not your repository), so the Commit button, `Cmd/Ctrl+Enter` and every other VS Code commit strip. Your own hooks still run afterwards |
-| Claude Code (`git commit`, in any chain) | The Claude plugin's `PreToolUse` hook, which strips the index and working tree of what the commit will include |
-| You, in a terminal | Nothing. Commit from the IDE, or strip first with `ai-comments strip <files>` |
+| JetBrains commit dialog | Yes. Toggle: **Strip AI comments** in the commit options |
+| VS Code (Commit button, `Cmd/Ctrl+Enter`, …) | Yes. Toggle: `aiComments.stripOnCommit` |
+| Claude Code running `git commit` | Yes |
+| A terminal | No. Run `ai-comments strip <files>` first, or commit from the IDE |
 
-Stripping removes AI comments from both the commit and the working tree. A partially staged file keeps its
-unstaged changes: the index and working-tree versions are stripped separately. When the command is too
-complex to understand (`eval`, `sh -c`, backticks), the hook strips every changed file in the repository instead.
+## Limitations
 
-## Supported file types
+- Claude Code hooks don't run on Windows or Intel macOS yet.
 
-The lexer's table in `core/src/commonMain/kotlin/dev/warin/aicomments/CommentSyntax.kt` is the single source of
-truth: the Claude rule lists these types, the CLI strips only these, and the IDE warns about AI comments elsewhere
-(it still highlights and strips them there using the IDE's own parser).
+## Contributing
 
-C family and JS/TS (`.ts .tsx .js .kt .java .swift .m .go .rs …`), CSS/SCSS/Less, XML/HTML/SVG/plist/xib/Vue/Svelte,
-Markdown/MDX, `#` languages (`.py .rb .sh .yml .toml .properties .env …`, `Dockerfile`, `Podfile`, `Makefile` …),
-and SQL/Lua. Run `clients/claude/hooks/run.sh extensions` for the exact list.
-
-The lexer is heuristic: JS regex literals, nested template literals and heredocs can hide a comment from it.
-Where it is unsure it misses comments rather than stripping the wrong text.
-
-## Repository layout
-
-```
-core/        Kotlin Multiplatform (JVM, native, JS), common code only: grammar, stripper, lexer and file-type table
-cli/         `ai-comments` native binary with the Claude Code hook handlers; also a JS library for VS Code
-clients/
-  jetbrains/ IntelliJ Platform plugin: PSI tokens into core, lexer fallback for files without comment PSI
-  vscode/    VS Code extension (TypeScript), using the CLI module compiled to a JS library (clients/vscode/lib)
-  claude/    Claude Code plugin: rule template, hooks, and checksums of the release binaries
-```
-
-One version number covers everything (`aiCommentsVersion` in `gradle.properties`).
-
-## Development
-
-Gradle downloads the JDK 25 toolchain and the WebStorm version the plugin builds against (`platformVersion` in
-`gradle.properties`). The macOS binary needs macOS on Apple silicon; Linux binaries cross-compile from there.
-
-```
-./gradlew :core:allTests :cli:allTests :jetbrains:test
-./gradlew :jetbrains:runIde -PrunIdeProject=/path/to/repo   # sandbox IDE
-./gradlew :cli:copyBinariesToClaudePlugin                   # local binaries in clients/claude/bin, used instead of downloading
-claude --plugin-dir ./clients/claude                         # try the Claude plugin without installing it
-
-./gradlew :cli:copyLibraryToVscode                           # rebuild clients/vscode/lib from the Kotlin sources
-cd clients/vscode && npm install && npm test                 # integration test; VSCODE_PATH picks an installed VS Code
-npm run package                                              # clients/vscode/ai-comments-<version>.vsix
-```
-
-Releases run from the **Release** workflow (Actions tab, enter a version). It sets the version everywhere, runs
-all tests and the plugin verifier, commits the versions and `clients/claude/checksums.txt`, tags, attaches the plugin
-zip, the `.vsix` and the Claude binaries to a GitHub release, and publishes to the JetBrains Marketplace, the VS Code
-Marketplace and Open VSX. It needs the secrets `JETBRAINS_MARKETPLACE_TOKEN`, `VSCE_PAT` and `OVSX_PAT`.
-
-Not covered yet: Windows and Intel macOS for the Claude hooks (no binary; they do nothing there).
+See [CONTRIBUTING.md](CONTRIBUTING.md).
