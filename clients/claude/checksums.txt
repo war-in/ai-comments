@@ -1,0 +1,3 @@
+77059d4bde1599e49c1670a9722374d24d07357a6298e75d1a2562fd0255e8c0  ai-comments-linux-arm64
+e4c4f5467a5cc4a54bfb04c373eabfbd3bf9d3ab529dc7a1c305ee67bdb9c50d  ai-comments-linux-x64
+0ae7a6838789c23d7d82e54312a434b8401da56e59e5c15f80f5258bbfcaa1e6  ai-comments-macos-arm64

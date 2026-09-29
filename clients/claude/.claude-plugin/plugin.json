@@ -1,12 +1,16 @@
 {
   "name": "ai-comments",
   "displayName": "AI Comments",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "description": "Transient em-dash AI comments: teaches Claude to write them, strips them before every git commit Claude makes, and checks edited files.",
   "author": {
     "name": "war-in"
   },
   "repository": "https://github.com/war-in/ai-comments",
   "license": "MIT",
-  "keywords": ["comments", "code-review", "git"]
+  "keywords": [
+    "comments",
+    "code-review",
+    "git"
+  ]
 }

@@ -2,7 +2,7 @@
   "name": "ai-comments",
   "displayName": "AI Comments",
   "description": "Highlights transient em-dash AI comments and strips them when you commit.",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "publisher": "war-in",
   "license": "MIT",
   "repository": {
