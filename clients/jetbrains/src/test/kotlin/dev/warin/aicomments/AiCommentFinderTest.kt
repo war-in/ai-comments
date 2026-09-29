@@ -42,6 +42,18 @@ class AiCommentFinderTest : BasePlatformTestCase() {
         assertEquals("/** — documented — */\nfunction f() {}\nf();\n", stripped)
     }
 
+    fun `test detects AI comments in shell scripts`() {
+        // Given a shell script, whose commenter reports `#` as the doc comment prefix too
+        val file = myFixture.configureByText("a.sh", "#!/bin/bash\n# — Was sh —\necho hi # — trailing —\n")
+
+        // When it is stripped
+        val stripped = AiCommentStripper.strip(file.text, AiCommentFinder.find(file).comments)
+
+        // Then both comments go, since shell has no doc comments to keep
+        assertFalse(AiCommentFinder.usesLexer(file))
+        assertEquals("#!/bin/bash\necho hi\n", stripped)
+    }
+
     fun `test falls back to the lexer for files the IDE treats as plain text`() {
         // Given a Swift file, which WebStorm has no comment PSI for
         val file = myFixture.configureByText("a.swift", "let a = 1 // — Was 2 —\nlet b = \"// — in a string —\"\n")

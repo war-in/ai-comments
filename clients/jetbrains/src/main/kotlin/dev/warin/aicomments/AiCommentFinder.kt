@@ -49,10 +49,12 @@ object AiCommentFinder {
         val span = Span(start, comment.textRange.endOffset)
         val commenter = LanguageCommenters.INSTANCE.forLanguage(comment.language)
 
-        val docPrefix = (commenter as? CodeDocumentationAwareCommenter)?.documentationCommentPrefix
+        val linePrefixes = commenter?.lineCommentPrefixes ?: FALLBACK_LINE_PREFIXES
+        // Shell reports `#` as its doc comment prefix too, which would make every comment a doc comment.
+        val docPrefix = (commenter as? CodeDocumentationAwareCommenter)?.documentationCommentPrefix?.takeIf { it !in linePrefixes }
         if (docPrefix != null && text.startsWith(docPrefix) && text != "/**/") return null
 
-        val linePrefix = (commenter?.lineCommentPrefixes ?: FALLBACK_LINE_PREFIXES).firstOrNull { text.startsWith(it) }
+        val linePrefix = linePrefixes.firstOrNull { text.startsWith(it) }
         if (linePrefix != null && '\n' !in text.trimEnd()) {
             val body = text.substring(linePrefix.length).trimEnd()
             return CommentToken(CommentKind.LINE, span, start + linePrefix.length + body.length, body)

@@ -23,8 +23,9 @@ dependencies {
         // which is not on the classpath just because the platform is.
         bundledModule("intellij.platform.vcs.impl")
 
-        // Only for tests that check comment detection against real TSX PSI.
+        // Only for tests that check comment detection against real TSX and shell PSI.
         testBundledPlugin("JavaScript")
+        testBundledPlugin("com.jetbrains.sh")
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
     }
 
