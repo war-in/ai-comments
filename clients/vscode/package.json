@@ -32,32 +32,9 @@
   "contributes": {
     "commands": [
       {
-        "command": "aiComments.commit",
-        "title": "Commit (Strip AI Comments)",
-        "category": "AI Comments",
-        "icon": "$(check)"
-      },
-      {
         "command": "aiComments.stripFile",
         "title": "Strip AI Comments in This File",
         "category": "AI Comments"
-      }
-    ],
-    "menus": {
-      "scm/title": [
-        {
-          "command": "aiComments.commit",
-          "group": "navigation@0",
-          "when": "scmProvider == git"
-        }
-      ]
-    },
-    "keybindings": [
-      {
-        "command": "aiComments.commit",
-        "key": "ctrl+enter",
-        "mac": "cmd+enter",
-        "when": "scmRepository && config.aiComments.stripOnCommit"
       }
     ],
     "colors": [
@@ -88,18 +65,18 @@
         "aiComments.stripOnCommit": {
           "type": "boolean",
           "default": true,
-          "description": "Make Cmd/Ctrl+Enter in the Source Control input strip AI comments before committing."
+          "description": "Strip AI comments before every commit VS Code makes: the Commit button, Cmd/Ctrl+Enter, Commit & Push and the rest."
         },
         "aiComments.warnAfterCommit": {
           "type": "boolean",
           "default": true,
-          "description": "Warn when a commit made another way (e.g. the Commit button) contains AI comments."
+          "description": "Warn when a commit still contains AI comments, e.g. one made with Commit (No Verify)."
         }
       }
     }
   },
   "scripts": {
-    "build": "esbuild src/extension.ts --bundle --platform=node --format=cjs --target=node20 --external:vscode --outfile=dist/extension.js",
+    "build": "esbuild src/extension.ts src/strip-hook.ts --bundle --platform=node --format=cjs --target=node20 --external:vscode --outdir=dist",
     "typecheck": "tsc --noEmit",
     "package": "npm run typecheck && npm run build && cp ../../LICENSE LICENSE && vsce package --no-dependencies --out ai-comments-$npm_package_version.vsix",
     "test": "npm run build && esbuild test/run.ts test/suite.ts --bundle --platform=node --format=cjs --target=node20 --external:vscode --external:@vscode/test-electron --outdir=dist-test && node dist-test/run.js",

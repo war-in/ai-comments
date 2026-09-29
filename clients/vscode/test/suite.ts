@@ -40,21 +40,24 @@ export async function run() {
     assert.ok(fixes.some((it) => it.title === 'Close AI comment'), 'quick fix offered');
     fs.rmSync(open);
 
-    // Given a staged file and an unstaged change, both with AI comments
+    // Given the repository's own pre-commit hook, a staged file and an unstaged change, both with AI comments
+    const marker = path.join(root, '.git', 'own-hook-ran');
+    fs.writeFileSync(path.join(root, '.git', 'hooks', 'pre-commit'), `#!/bin/sh\ntouch "${marker}"\n`, {mode: 0o755});
     fs.writeFileSync(path.join(root, 'a.ts'), 'a();\n// — staged note —\n');
     git('add', 'a.ts');
     fs.writeFileSync(path.join(root, 'a.ts'), 'a();\n// — staged note —\nb(); // — unstaged note —\n');
     await repository.status();
 
-    // When committing through the extension's command, the way Cmd+Enter in the Source Control input does
+    // When committing with VS Code's own commit, which the Commit button and Cmd+Enter run
     repository.inputBox.value = 'Add a';
-    await vscode.commands.executeCommand('aiComments.commit');
+    await vscode.commands.executeCommand('git.commit', repository.rootUri);
 
-    // Then the commit and the working tree lose their AI comments, and the unstaged change stays unstaged
+    // Then the commit and the working tree lose their AI comments, the unstaged change stays unstaged, and the repository's hook still ran
     await waitFor(() => git('log', '--format=%s', '-1').trim() === 'Add a' || undefined);
     assert.strictEqual(git('show', 'HEAD:a.ts'), 'a();\n');
     assert.strictEqual(fs.readFileSync(path.join(root, 'a.ts'), 'utf8'), 'a();\nb();\n');
     assert.strictEqual(git('diff', '--name-only').trim(), 'a.ts');
+    assert.ok(fs.existsSync(marker), "the repository's pre-commit hook ran");
 
     // Given nothing staged, where smart commit stages every change including new files
     await vscode.workspace.getConfiguration('git').update('enableSmartCommit', true, vscode.ConfigurationTarget.Global);
@@ -62,11 +65,11 @@ export async function run() {
     fs.writeFileSync(path.join(root, 'c.ts'), 'c(); // — new file —\n');
     await repository.status();
 
-    // When committing through the command
+    // When committing with VS Code's own commit
     repository.inputBox.value = 'Smart commit';
-    await vscode.commands.executeCommand('aiComments.commit');
+    await vscode.commands.executeCommand('git.commit', repository.rootUri);
 
-    // Then everything smart commit picked up was stripped first
+    // Then everything smart commit picked up was stripped
     await waitFor(() => git('log', '--format=%s', '-1').trim() === 'Smart commit' || undefined);
     assert.strictEqual(git('show', 'HEAD:a.ts'), 'a();\nb();\n');
     assert.strictEqual(git('show', 'HEAD:c.ts'), 'c();\n');

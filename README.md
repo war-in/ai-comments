@@ -44,7 +44,7 @@ An AI comment's body starts with `— ` and ends with ` —` (U+2014 em-dash):
 | Block, any length | `/* — first line … last line — */` |
 | Line group | consecutive `//` lines from the one opening with `— ` to the one closing with ` —` |
 | JSX | `{/* — Wrapped in View so the badge is pressable — */}`: the braces go too |
-| Other languages | `# — … —`, `-- — … —`, `<!-- — … — -->` |
+| Other languages | `# — … —`, `-- — … —`, `` |
 
 - `/** … */` doc comments are never AI comments.
 - An opener that never closes is **not** stripped. The IDE shows a warning with a quick-fix, and Claude is told right after the edit.
@@ -55,7 +55,7 @@ An AI comment's body starts with `— ` and ends with ` —` (U+2014 em-dash):
 | Commit made by | Stripped by |
 |---|---|
 | The IDE commit dialog | The JetBrains plugin, before "Reformat code". Toggle: **Strip AI comments** in the commit options |
-| VS Code | `Cmd/Ctrl+Enter` in the Source Control input, or the ✓ title button: strips, then runs VS Code's normal commit. The built-in Commit button can't be hooked; commits made with it get a warning when AI comments leaked |
+| VS Code | A pre-commit hook the extension gives VS Code's git (not your repository), so the Commit button, `Cmd/Ctrl+Enter` and every other VS Code commit strip. Your own hooks still run afterwards |
 | Claude Code (`git commit`, in any chain) | The Claude plugin's `PreToolUse` hook, which strips the index and working tree of what the commit will include |
 | You, in a terminal | Nothing. Commit from the IDE, or strip first with `ai-comments strip <files>` |
 

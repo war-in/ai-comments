@@ -1,9 +1,11 @@
 import {execFile} from 'child_process';
+import * as path from 'path';
 import {promisify} from 'util';
 import * as vscode from 'vscode';
 
 import * as kotlin from '../lib/ai-comments-cli';
-import {getGitApi, GitApi, Repository} from './git';
+import {getGitApi, Repository} from './git';
+import {StripHook} from './hooks';
 
 /** Grammar, lexer, stripper and commit stripping all come from the shared Kotlin core, compiled to JS. */
 const core = kotlin.dev.warin.aicomments.cli;
@@ -91,15 +93,27 @@ export async function activate(context: vscode.ExtensionContext) {
     // For the integration test: how many AI comments each visible editor was decorated with.
     const api = {decorations: () => vscode.window.visibleTextEditors.map((editor) => ({uri: editor.document.uri.toString(), count: decorated.get(editor)}))};
 
+    const stripHook = new StripHook(path.join(context.globalStorageUri.fsPath, 'hooks'), context.asAbsolutePath(path.join('dist', 'strip-hook.js')));
+    const applyStripOnCommit = () => {
+        if (vscode.workspace.getConfiguration('aiComments').get<boolean>('stripOnCommit', true)) {
+            stripHook.enable();
+        } else {
+            stripHook.disable();
+        }
+    };
+    applyStripOnCommit();
+    context.subscriptions.push(
+        {dispose: () => stripHook.disable()},
+        vscode.workspace.onDidChangeConfiguration((event) => event.affectsConfiguration('aiComments.stripOnCommit') && applyStripOnCommit()),
+    );
+
     const git = await getGitApi();
     if (!git) {
-        output.appendLine('The built-in Git extension is disabled, so AI comments are not stripped on commit.');
+        output.appendLine('The built-in Git extension is disabled, so commits are not checked for AI comments.');
         return api;
     }
-    const committer = new Committer(git, output);
-    context.subscriptions.push(vscode.commands.registerCommand('aiComments.commit', (arg?: unknown) => committer.commit(arg)));
-    git.repositories.forEach((repository) => committer.watch(repository, context));
-    context.subscriptions.push(git.onDidOpenRepository((repository) => committer.watch(repository, context)));
+    git.repositories.forEach((repository) => warnOnLeaks(repository, context));
+    context.subscriptions.push(git.onDidOpenRepository((repository) => warnOnLeaks(repository, context)));
     return api;
 }
 
@@ -137,80 +151,22 @@ class CloseAiCommentActions implements vscode.CodeActionProvider {
     }
 }
 
-/**
- * VS Code has no pre-commit extension point, so stripping happens in a command that then runs the regular
- * `git.commit` flow, bound to Cmd/Ctrl+Enter in the Source Control input and shown as the Source Control title button.
- */
-class Committer {
-    private ownCommits = 0;
-
-    constructor(
-        private readonly git: GitApi,
-        private readonly output: vscode.OutputChannel,
-    ) {}
-
-    async commit(arg?: unknown) {
-        const repository = this.repositoryFor(arg);
-        if (!repository) {
-            await vscode.commands.executeCommand('scm.acceptInput');
-            return;
-        }
-        await vscode.workspace.saveAll(false);
-        // With nothing staged, VS Code's commit offers to stage everything, so the working tree is stripped too.
-        const nothingStaged = repository.state.indexChanges.length === 0;
-        try {
-            const summary = core.stripForCommit(repository.rootUri.fsPath, nothingStaged);
-            if (summary) {
-                this.output.appendLine(summary);
-                vscode.window.setStatusBarMessage(`AI Comments: ${summary}`, 8000);
-            }
-        } catch (error) {
-            const proceed = await vscode.window.showErrorMessage(`AI Comments could not strip before commit: ${error}`, 'Commit anyway');
-            if (proceed !== 'Commit anyway') {
+/** Catches commits the pre-commit hook did not strip, like ones made with `--no-verify`, and says when AI comments leaked into them. */
+function warnOnLeaks(repository: Repository, context: vscode.ExtensionContext) {
+    if (!repository.onDidCommit) {
+        return;
+    }
+    context.subscriptions.push(
+        repository.onDidCommit(async () => {
+            if (!vscode.workspace.getConfiguration('aiComments').get<boolean>('warnAfterCommit', true)) {
                 return;
             }
-        }
-        this.ownCommits++;
-        await vscode.commands.executeCommand('git.commit', repository.rootUri);
-    }
-
-    /** Catches commits made around the command, like the Commit button, and says when AI comments leaked into them. */
-    watch(repository: Repository, context: vscode.ExtensionContext) {
-        if (!repository.onDidCommit) {
-            return;
-        }
-        context.subscriptions.push(
-            repository.onDidCommit(async () => {
-                if (this.ownCommits > 0) {
-                    this.ownCommits--;
-                    return;
-                }
-                if (!vscode.workspace.getConfiguration('aiComments').get<boolean>('warnAfterCommit', true)) {
-                    return;
-                }
-                const leaked = await filesWithAiCommentsInHead(repository.rootUri.fsPath);
-                if (leaked.length > 0) {
-                    vscode.window.showWarningMessage(
-                        `The last commit contains AI comments in ${leaked.join(', ')}. Commit with Cmd/Ctrl+Enter or "Commit (Strip AI Comments)" to strip them.`,
-                    );
-                }
-            }),
-        );
-    }
-
-    private repositoryFor(arg: unknown): Repository | undefined {
-        const rootUri = (arg as {rootUri?: vscode.Uri} | undefined)?.rootUri;
-        if (rootUri) {
-            return this.git.getRepository(rootUri) ?? undefined;
-        }
-        const repositories = this.git.repositories;
-        const active = vscode.window.activeTextEditor?.document.uri;
-        return (
-            repositories.find((repository) => repository.ui.selected) ??
-            (active ? (this.git.getRepository(active) ?? undefined) : undefined) ??
-            (repositories.length === 1 ? repositories[0] : undefined)
-        );
-    }
+            const leaked = await filesWithAiCommentsInHead(repository.rootUri.fsPath);
+            if (leaked.length > 0) {
+                vscode.window.showWarningMessage(`The last commit contains AI comments in ${leaked.join(', ')}. The commit skipped the pre-commit hook that strips them, or the Git output shows why it failed.`);
+            }
+        }),
+    );
 }
 
 async function filesWithAiCommentsInHead(root: string): Promise<string[]> {
