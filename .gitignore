@@ -1,0 +1,7 @@
+.gradle/
+build/
+.intellijPlatform/
+.kotlin/
+*.dSYM/
+.idea
+/clients/claude/bin/

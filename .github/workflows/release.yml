@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release, e.g. 0.3.0
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # Kotlin/Native builds the macOS binary only on macOS, and cross-compiles the Linux ones from there.
+    runs-on: macos-latest
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Set versions
+        run: scripts/release.sh "$VERSION"
+
+      - name: Test and build
+        run: >
+          ./gradlew --console=plain
+          :core:allTests :cli:allTests :jetbrains:test
+          :jetbrains:buildPlugin :jetbrains:verifyPlugin
+          :cli:copyBinariesToClaudePlugin :cli:copyLibraryToVscode
+
+      # The Claude plugin downloads its binary from this release and checks it against this file.
+      - name: Checksum the Claude plugin binaries
+        working-directory: clients/claude/bin
+        run: shasum -a 256 ai-comments-* > ../checksums.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build and test the VS Code extension
+        working-directory: clients/vscode
+        run: |
+          npm ci
+          npm test
+          npm run package
+
+      - name: Commit, tag and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add gradle.properties clients/claude/.claude-plugin/plugin.json clients/claude/checksums.txt clients/vscode/package.json
+          git commit -m "Release v$VERSION"
+          git tag "v$VERSION"
+          git push origin HEAD "v$VERSION"
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "v$VERSION" --title "v$VERSION" --generate-notes
+          "clients/jetbrains/build/distributions/ai-comments-$VERSION.zip"
+          "clients/vscode/ai-comments-$VERSION.vsix"
+          clients/claude/bin/ai-comments-*
+
+      - name: Publish to the JetBrains Marketplace
+        env:
+          JETBRAINS_MARKETPLACE_TOKEN: ${{ secrets.JETBRAINS_MARKETPLACE_TOKEN }}
+        run: ./gradlew --console=plain :jetbrains:publishPlugin
+
+      - name: Publish to the VS Code Marketplace and Open VSX
+        working-directory: clients/vscode
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: npm run publish

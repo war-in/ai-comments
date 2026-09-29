@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.vsix
+LICENSE
+lib/
+dist-test/
+.vscode-test/

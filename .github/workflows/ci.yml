@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew --console=plain :core:allTests :cli:allTests :jetbrains:test :cli:copyLibraryToVscode
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: VS Code extension
+        working-directory: clients/vscode
+        run: npm ci && npm run typecheck && npm test
+      - name: Claude plugin manifests
+        run: npx --yes @anthropic-ai/claude-code plugin validate . && npx --yes @anthropic-ai/claude-code plugin validate ./clients/claude

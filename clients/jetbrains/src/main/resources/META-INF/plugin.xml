@@ -1,0 +1,32 @@
+<idea-plugin>
+    <id>dev.warin.ai-comments</id>
+    <name>AI Comments</name>
+    <vendor>war-in</vendor>
+
+    <description><![CDATA[
+        Highlights transient AI comments, delimited by em-dashes, and strips them on commit:
+        <ul>
+            <li><code>// — Moved out of the effect so rerenders do not refire the request —</code></li>
+            <li><code>/* — … — */</code> blocks, JSX <code>{/* — … — */}</code>, and runs of adjacent line
+                comments from the line opening with <code>— </code> to the line closing with <code> —</code>.</li>
+        </ul>
+        Stripping is a before-commit option in the commit dialog. Unterminated AI comments are reported and kept.
+    ]]></description>
+
+    <dependencies>
+        <plugin id="com.intellij.modules.vcs"/>
+        <module name="intellij.platform.vcs.impl"/>
+    </dependencies>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <annotator language="" implementationClass="dev.warin.aicomments.AiCommentAnnotator"/>
+        <editorFactoryListener implementation="dev.warin.aicomments.AiCommentDiffHighlighter"/>
+        <colorSettingsPage implementation="dev.warin.aicomments.AiCommentColorSettingsPage"/>
+        <additionalTextAttributes scheme="Default" file="colorSchemes/AiCommentsDefault.xml"/>
+        <additionalTextAttributes scheme="Islands Light" file="colorSchemes/AiCommentsDefault.xml"/>
+        <additionalTextAttributes scheme="Darcula" file="colorSchemes/AiCommentsDarcula.xml"/>
+        <additionalTextAttributes scheme="Islands Dark" file="colorSchemes/AiCommentsDarcula.xml"/>
+        <!-- First, so that reformat-before-commit runs after the comments are gone. -->
+        <checkinHandlerFactory implementation="dev.warin.aicomments.StripAiCommentsCheckinHandlerFactory" order="first"/>
+    </extensions>
+</idea-plugin>

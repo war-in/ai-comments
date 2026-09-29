@@ -1,0 +1,14 @@
+{
+  "name": "war-in",
+  "description": "war-in's Claude Code plugins",
+  "owner": {
+    "name": "war-in"
+  },
+  "plugins": [
+    {
+      "name": "ai-comments",
+      "source": "./clients/claude",
+      "description": "Transient em-dash AI comments that explain a change to its reviewer and never reach git history"
+    }
+  ]
+}

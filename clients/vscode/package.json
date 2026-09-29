@@ -1,0 +1,117 @@
+{
+  "name": "ai-comments",
+  "displayName": "AI Comments",
+  "description": "Highlights transient em-dash AI comments and strips them when you commit.",
+  "version": "0.2.0",
+  "publisher": "war-in",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/war-in/ai-comments"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other",
+    "SCM Providers"
+  ],
+  "keywords": [
+    "comments",
+    "ai",
+    "code review",
+    "git"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "extensionDependencies": [
+    "vscode.git"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "aiComments.commit",
+        "title": "Commit (Strip AI Comments)",
+        "category": "AI Comments",
+        "icon": "$(check)"
+      },
+      {
+        "command": "aiComments.stripFile",
+        "title": "Strip AI Comments in This File",
+        "category": "AI Comments"
+      }
+    ],
+    "menus": {
+      "scm/title": [
+        {
+          "command": "aiComments.commit",
+          "group": "navigation@0",
+          "when": "scmProvider == git"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "aiComments.commit",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "scmRepository && config.aiComments.stripOnCommit"
+      }
+    ],
+    "colors": [
+      {
+        "id": "aiComments.background",
+        "description": "Background of AI comments.",
+        "defaults": {
+          "dark": "#3b2d4f",
+          "light": "#f1e8fc",
+          "highContrast": "#3b2d4f",
+          "highContrastLight": "#f1e8fc"
+        }
+      },
+      {
+        "id": "aiComments.foreground",
+        "description": "Text color of AI comments.",
+        "defaults": {
+          "dark": "#c9a2f0",
+          "light": "#7a3db8",
+          "highContrast": "#e0c8ff",
+          "highContrastLight": "#5a1d98"
+        }
+      }
+    ],
+    "configuration": {
+      "title": "AI Comments",
+      "properties": {
+        "aiComments.stripOnCommit": {
+          "type": "boolean",
+          "default": true,
+          "description": "Make Cmd/Ctrl+Enter in the Source Control input strip AI comments before committing."
+        },
+        "aiComments.warnAfterCommit": {
+          "type": "boolean",
+          "default": true,
+          "description": "Warn when a commit made another way (e.g. the Commit button) contains AI comments."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "esbuild src/extension.ts --bundle --platform=node --format=cjs --target=node20 --external:vscode --outfile=dist/extension.js",
+    "typecheck": "tsc --noEmit",
+    "package": "npm run typecheck && npm run build && cp ../../LICENSE LICENSE && vsce package --no-dependencies --out ai-comments-$npm_package_version.vsix",
+    "test": "esbuild test/run.ts test/suite.ts --bundle --platform=node --format=cjs --target=node20 --external:vscode --external:@vscode/test-electron --outdir=dist-test && node dist-test/run.js",
+    "publish": "vsce publish --packagePath ai-comments-$npm_package_version.vsix && ovsx publish ai-comments-$npm_package_version.vsix"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "@types/vscode": "~1.90.0",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^3.2.0",
+    "esbuild": "^0.25.0",
+    "ovsx": "^1.2.0",
+    "typescript": "^5.6.0"
+  }
+}
